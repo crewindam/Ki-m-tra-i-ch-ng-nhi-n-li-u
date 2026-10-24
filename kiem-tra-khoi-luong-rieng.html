@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kiểm tra khối lượng riêng nhiên liệu</title>
+<style>
+:root{--bg:#f3f6f8;--surface:#fff;--ink:#14232e;--muted:#5b6b78;--line:#c9d4dc;--calc:#e4f0f7;--accent:#0b5d8a;--ok:#14733f;--okbg:#e2f4ea;--bad:#a4261c;--badbg:#fbe6e3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a22;--surface:#17252f;--ink:#e6eef3;--muted:#93a5b2;--line:#2f4452;--calc:#1b3647;--accent:#6bb8e3;--ok:#6fd49a;--okbg:#14382a;--bad:#ff8f84;--badbg:#44211e}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Be Vietnam Pro","Segoe UI",Roboto,Arial,sans-serif;line-height:1.5}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:var(--muted);font-size:.92rem}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+.bar label{font-size:.9rem}
+button{font:inherit;padding:7px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;min-width:1100px;width:100%}
+th,td{border:1px solid var(--line);padding:6px;text-align:center;font-size:.85rem;vertical-align:middle}
+th{font-weight:600}
+th small{display:block;font-weight:400;color:var(--muted);font-style:italic}
+th.g{background:var(--calc)}
+td input{width:100%;min-width:78px;box-sizing:border-box;font:inherit;padding:6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);text-align:right}
+td.c{background:var(--calc);font-weight:600;font-variant-numeric:tabular-nums}
+td.c input{background:transparent;border-style:dashed;font-weight:600}
+td.ok{background:var(--okbg);color:var(--ok);font-weight:700}
+td.bad{background:var(--badbg);color:var(--bad);font-weight:700}
+.hint{font-size:.75rem;color:var(--muted);margin-top:2px}
+.msg{font-size:.75rem;color:var(--bad);margin-top:2px}
+details{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:.88rem}
+summary{cursor:pointer;font-weight:600}
+code{background:var(--calc);padding:1px 5px;border-radius:4px}
+@media print{.bar button,details{display:none}}
+</style>
+</head>
+<body>
+<main>
+<h1>Kiểm tra khối lượng riêng nhiên liệu</h1>
+<p class="sub">Nhập các cột 1–6, 8, 9. Cột 7, 10, 11 (nền xanh) được tính tự động.</p>
+<div class="bar">
+  <label>Ngưỡng chênh lệch tham khảo (kg/m³): <input id="thr" type="number" step="0.1" value="3.0" style="width:70px;padding:5px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink)"></label>
+  <button id="add">Thêm dòng</button>
+  <button class="ghost" id="clr">Xóa tất cả</button>
+  <button class="ghost" onclick="window.print()">In</button>
+</div>
+<div class="wrap">
+<table>
+<thead>
+<tr><th colspan="3">Chuyến tra nạp trước<small>Last refuelling</small></th><th colspan="3">Bể cấp hàng gần nhất<small>Latest releasing tank</small></th><th class="g" rowspan="2">[7] KLR trung bình (kg/m³)<small>Average density</small></th><th colspan="3">KLR đo tại sân đỗ, lần tra nạp này<small>Measurement on apron</small></th><th class="g" rowspan="2">[11] Chênh lệch KLR (kg/m³)<small>Density diff.</small></th></tr>
+<tr>
+<th>[1] Số chứng từ<small>Document No.</small></th>
+<th>[2] KLR ở 15°C (kg/m³)<small>Density @15°C</small></th>
+<th>[3] Lượng nhiên liệu còn lại trên xe<small>Fuel remaining in refueler</small></th>
+<th>[4] Số CNXH<small>Release Cert No.</small></th>
+<th>[5] KLR ở 15°C (kg/m³)<small>Density @15°C</small></th>
+<th>[6] Lượng nhiên liệu cấp lên xe<small>Fuel loaded into refueler</small></th>
+<th>[8] Nhiệt độ quan sát (°C)<small>Obs. temp</small></th>
+<th>[9] KLR quan sát (kg/m³)<small>Obs. density</small></th>
+<th class="g">[10] KLR ở 15°C (kg/m³)<small>Density @15°C</small></th>
+</tr>
+</thead>
+<tbody id="rows"></tbody>
+</table>
+</div>
+<details>
+<summary>Công thức và lưu ý</summary>
+<p><code>[7] = ([2]×[3] + [5]×[6]) / ([3] + [6])</code><br>
+<code>[11] = |[7] − [10]|</code><br>
+[3] và [6] phải cùng hệ đơn vị đo (lít, kg…). Nếu xe không còn nhiên liệu ([3] trống hoặc 0) thì [7] = [5].</p>
+<p>Cột [10] được hiệu chỉnh từ [9] và [8] về 15°C theo hệ số hiệu chỉnh thể tích của nhóm nhiên liệu phản lực (hệ số K0 = 594,5418, giống Bảng 53B/54B ASTM D1250), làm tròn 0,1 kg/m³. Đây là phép xấp xỉ; nếu cần khớp bảng tra chính thức, hãy gõ trực tiếp giá trị vào ô [10] (ô sẽ chuyển sang nhập tay, xóa ô để quay lại tự động).</p>
+<p>Biểu mẫu chỉ mang tính tham khảo, không dùng để đánh giá chất lượng nhiên liệu. Ngưỡng tô màu ở trên chỉ là mức bạn tự đặt.</p>
+</details>
+</main>
+<script>
+const tb=document.getElementById('rows');
+const n=v=>{const s=String(v).replace(',','.').trim();if(s==='')return null;const x=Number(s);return isFinite(x)?x:null};
+const f1=x=>x.toFixed(1);
+// Quy đổi KLR quan sát về 15°C
+function to15(rho,t){
+  const K0=594.5418,dt=t*1.00024-15;let r15=rho;
+  for(let i=0;i<30;i++){
+    const a=K0/(r15*r15);
+    const vcf=Math.exp(-a*dt*(1+0.8*a*dt));
+    r15=rho/vcf;
+  }
+  return Math.round(r15*10)/10;
+}
+function addRow(){
+  const tr=document.createElement('tr');
+  const ids=['c1','c2','c3','c4','c5','c6'];
+  let h='';
+  ids.forEach(i=>{h+=`<td><input data-k="${i}" ${i==='c1'||i==='c4'?'style="text-align:left"':'inputmode="decimal"'} aria-label="${i}"></td>`});
+  h+='<td class="c" data-o="c7">–</td>';
+  h+='<td><input data-k="c8" inputmode="decimal" aria-label="c8"></td><td><input data-k="c9" inputmode="decimal" aria-label="c9"></td>';
+  h+='<td class="c"><input data-k="c10" inputmode="decimal" aria-label="c10" placeholder="tự động"><div class="hint" data-o="auto"></div></td>';
+  h+='<td class="c" data-o="c11">–</td>';
+  tr.innerHTML=h;tb.appendChild(tr);
+  tr.addEventListener('input',()=>calc(tr));
+  return tr;
+}
+function calc(tr){
+  const g=k=>tr.querySelector(`[data-k="${k}"]`).value;
+  const o=k=>tr.querySelector(`[data-o="${k}"]`);
+  const c2=n(g('c2')),c3=n(g('c3'))||0,c5=n(g('c5')),c6=n(g('c6')),c8=n(g('c8')),c9=n(g('c9'));
+  const man=n(g('c10'));
+  // [7]
+  let c7=null;
+  const tot=c3+(c6||0);
+  if(c6!==null&&c5!==null&&tot>0&&(c3===0||c2!==null)) c7=((c3>0?c2*c3:0)+c5*c6)/tot;
+  else if(c6===null&&c3>0&&c2!==null&&false) c7=null;
+  o('c7').textContent=c7===null?'–':f1(c7);
+  // [10]
+  let c10=null,hint='';
+  if(man!==null){c10=man;hint='nhập tay'}
+  else if(c8!==null&&c9!==null&&c9>0){c10=to15(c9,c8);hint='tự động từ [8], [9]'}
+  o('auto').textContent=hint;
+  if(man===null) tr.querySelector('[data-k="c10"]').placeholder=c10===null?'tự động':f1(c10);
+  // [11]
+  const cell=o('c11');cell.className='c';
+  if(c7!==null&&c10!==null){
+    const d=Math.abs(c7-c10);const thr=n(document.getElementById('thr').value);
+    cell.textContent=f1(d);
+    if(thr!==null) cell.className='c '+(d<=thr?'ok':'bad');
+  } else cell.textContent='–';
+}
+function all(){[...tb.children].forEach(calc)}
+document.getElementById('add').onclick=()=>addRow();
+document.getElementById('clr').onclick=()=>{tb.innerHTML='';for(let i=0;i<3;i++)addRow()};
+document.getElementById('thr').addEventListener('input',all);
+for(let i=0;i<3;i++)addRow();
+</script>
+</body>
+</html>
